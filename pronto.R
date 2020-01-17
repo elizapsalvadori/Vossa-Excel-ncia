@@ -12,8 +12,9 @@ install.packages("ggplot2")
 ## ABRINDO BANCO DE DADOS
 
 library(readxl)
-dados_oldmethodoly <- read_excel("~/MESTRADO CIﾊNCIA POLITICA/Disserta鈬o/dados_oldmethodoly.xlsx")
+dados_oldmethodoly <- read_excel("MESTRADO CIÊNCIA POLITICA/Dissertação/dados_oldmethodoly.xlsx")
 View(dados_oldmethodoly)
+
 
 ## CHAMANDO A BASE DE DADOS
 
@@ -37,7 +38,15 @@ pibnovo <- as.numeric(dados_oldmethodoly$pib)
 
 
 ###DEFASANDO A VARIAVEL DEPENDENTE 
-dados_oldmethodoly$dep_lag <- Lag(dados_oldmethodoly$per_corrup軋o, -1)
+library(tidyverse)
+library(plm)
+library(readxl)
+library(gdata)
+library(lme4)
+library(Hmisc)
+library(plm)
+
+dados_oldmethodoly$dep_lag <- Lag(dados_oldmethodoly$per_corrupçao, -1)
 summary(dados_oldmethodoly$dep_lag)
 
 
@@ -501,7 +510,7 @@ map1
 
 
 
-#### REGRESSAO 10 EFEITO FIXO + POLINOMIAL
+#### REGRESSAO 1 EFEITO FIXO 
 attach(dados_oldmethodoly)
 install.packages('plm')
 library(lme4)
@@ -604,3 +613,122 @@ lmtest::dwtest(regressao10)
 install.packages('carData')
 library(car)
 lmtest::bgtest(regressao10)
+
+
+
+#### REGRESSAO 1 EFEITOS FIXOS POR PAÍS + INDEPENDENCIA (normal) + ao quadrado
+library(plm)
+regressao1<- plm(data = dados_oldmethodoly, per_corrupçao ~ inde_jud
+           + jud + democracia + log(pibnovo) + 
+             idhnovo + gininovo + dep_lag, cluster = 'country', 
+           model = 'within', index = c('country', 'year'))
+summary(regressao1)
+library(coefplot)
+library(sjPlot)
+coefplot(regressao1) +
+theme_sjplot()
+
+### REGRESSAO 2 EFEITOS FIXO POR PAIS + INDEPENDENCIA AO QUADRADO
+library(plm)
+
+regressao2 <- plm(data = dados_oldmethodoly, per_corrupçao ~ inde_jud +
+                    democracia + log(pibnovo) + 
+                 idhnovo + gininovo + dep_lag,
+                 cluster = 'country', 
+               model = 'within', index = c('country', 'year'))
+summary(regressao2)
+coefplot(regressao2)+
+theme_sjplot()
+
+### REGRESSAO 3 EFEITOS FIXOS POR PAIS + ACCOUNTABILITY 
+library(plm)
+regressao3 <- plm(data = dados_oldmethodoly, per_corrupçao ~ v2juaccnt_osp +
+                    democracia + log(pibnovo) + 
+                    idhnovo + gininovo + dep_lag,
+                  cluster = 'country', 
+                  model = 'within', index = c('country', 'year'))
+summary(regressao3)
+coefplot(regressao3) +
+theme_sjplot()
+
+### REGRESSAO 4 EFEITOS FIXOS POR PAIS + INDEPE E ACCOUNTABILITY
+
+regressao4 <- plm(data = dados_oldmethodoly, per_corrupçao ~ inde_jud + jud
+                  + v2juaccnt_osp +
+                    democracia + log(pibnovo) + 
+                    idhnovo + gininovo + dep_lag,
+                  cluster = 'country', 
+                  model = 'within', index = c('country', 'year'))
+summary(regressao4)
+coefplot(regressao4)+
+theme_sjplot()
+
+
+### REGRESSÃO DE PAINEL COM EFEITOS ALEATÓRIOS
+
+library(lme4)
+library(plm)
+library(sjPlot)
+regressao5 <- plm(data = dados_oldmethodoly, per_corrupçao ~ inde_jud + 
+                     jud + v2juaccnt_osp + 
+                     democracia
+                   + log(pibnovo) + idhnovo + gininovo + dep_lag, 
+                   cluster = 'country', 
+                   model = 'random', index = c("country", "year"))
+summary(regressao5)
+coefplot(regressao5) +
+  theme_sjplot()
+
+### REGRESSÃO DE PAINEL COM EFEITOS ALEATORIOS SEM TERMO QUADRÁTICO
+
+regressao6 <- plm(data = dados_oldmethodoly, per_corrupçao ~ jud + v2juaccnt_osp + 
+                    democracia
+                  + log(pibnovo) + idhnovo + gininovo + dep_lag, 
+                  cluster = 'country', 
+                  model = 'random', index = c("country", "year"))
+summary(regressao6)
+coefplot(regressao5) +
+  theme_sjplot()
+
+#### TESTE DE HAUSMAN - EFEITO FIXO + ALEATORIO
+library(pander)
+phtest(regressao4, regressao5)
+pander(phtest(regressao4, regressao5))
+
+
+#### REGRESSAO DE PAINEL - MODELO POOLED
+
+regressao7 <- plm(data = dados_oldmethodoly, per_corrupçao ~ inde_jud + jud +
+                     v2juaccnt_osp + 
+                     democracia
+                   + log(pibnovo) + idhnovo + gininovo + dep_lag, 
+                   cluster = 'country', 
+                   model = 'pooling', index = c("country", "year"))
+summary(regressao7)
+library(sjPlot)
+coefplot(regressao7)+
+  theme_sjplot()
+
+
+### TESTE BREUSCH-PAGAN - EFEITOS ALEATORIOS E POOLED
+library(plm)
+lmtest::bptest(regressao4)
+pander(lmtest::bptest(regressao4))
+lmtest::bptest(regressao6)
+pander(lmtest::bptest(regressao6))
+pander(lmtest::bptest(regressao5))
+pander(lmtest::bptest(regressao7))
+
+
+### TESTE DE AUTOCORRELACAO BREUSCH-GODFREY
+install.packages('carData')
+library(car)
+lmtest::bgtest(regressao4)
+pander(lmtest::bgtest(regressao4))
+
+### TESTE DE CHOW - QUAL EFEITO APLICAR
+library(pander)
+library(plm)
+pooltest(regressao4,regressao7)
+pFtest(regressao4,regressao7)
+pander(pFtest(regressao4,regressao7))
